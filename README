@@ -1,5 +1,11 @@
-This is the source code repository for RE2, a regular expression library.
+# RE2 Architus Fork
 
+## Introduction
+This is a fork of Google's re2 library used for the Architus Discord bot. It is simply
+re2 with some stripped out syntax features to allow for quick linear time searching
+for autoresponses.
+
+## Documentation from Google
 For documentation about how to install and use RE2,
 visit https://github.com/google/re2/.
 
