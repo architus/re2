@@ -2242,6 +2242,13 @@ Regexp* Regexp::Parse(const StringPiece& s, ParseFlags global_flags,
       }
 
       case '(':
+        // "(?" introduces Perl escape.
+        if ((ps.flags() & PerlX) && (t.size() >= 2 && t[1] == '?')) {
+          // Flag changes and non-capturing groups.
+          if (!ps.ParsePerlFlags(&t))
+            return NULL;
+          break;
+        }
         if (ps.flags() & NeverCapture) {
           if (!ps.DoLeftParenNoCapture())
             return NULL;
@@ -2293,15 +2300,21 @@ Regexp* Regexp::Parse(const StringPiece& s, ParseFlags global_flags,
         StringPiece opstr = t;
         bool nongreedy = false;
         t.remove_prefix(1);  // '*' or '+' or '?'
-        if (!lastunary.empty()) {
-          // In Perl it is not allowed to stack repetition operators:
-          //   a** is a syntax error, not a double-star.
-          // (and a++ means something else entirely, which we don't support!)
-          status->set_code(kRegexpRepeatOp);
-          status->set_error_arg(StringPiece(
-            lastunary.data(),
-            static_cast<size_t>(t.data() - lastunary.data())));
-        return NULL;
+        if (ps.flags() & PerlX) {
+          if (!t.empty() && t[0] == '?') {
+            nongreedy = true;
+            t.remove_prefix(1);  // '?'
+          }
+          if (!lastunary.empty()) {
+            // In Perl it is not allowed to stack repetition operators:
+            //   a** is a syntax error, not a double-star.
+            // (and a++ means something else entirely, which we don't support!)
+            status->set_code(kRegexpRepeatOp);
+            status->set_error_arg(StringPiece(
+                lastunary.data(),
+                static_cast<size_t>(t.data() - lastunary.data())));
+            return NULL;
+          }
         }
         opstr = StringPiece(opstr.data(),
                             static_cast<size_t>(t.data() - opstr.data()));
@@ -2322,13 +2335,19 @@ Regexp* Regexp::Parse(const StringPiece& s, ParseFlags global_flags,
           break;
         }
         bool nongreedy = false;
-        if (!lastunary.empty()) {
-          // Not allowed to stack repetition operators.
-          status->set_code(kRegexpRepeatOp);
-          status->set_error_arg(StringPiece(
-              lastunary.data(),
-              static_cast<size_t>(t.data() - lastunary.data())));
-          return NULL;
+        if (ps.flags() & PerlX) {
+          if (!t.empty() && t[0] == '?') {
+            nongreedy = true;
+            t.remove_prefix(1);  // '?'
+          }
+          if (!lastunary.empty()) {
+            // Not allowed to stack repetition operators.
+            status->set_code(kRegexpRepeatOp);
+            status->set_error_arg(StringPiece(
+                lastunary.data(),
+                static_cast<size_t>(t.data() - lastunary.data())));
+            return NULL;
+          }
         }
         opstr = StringPiece(opstr.data(),
                             static_cast<size_t>(t.data() - opstr.data()));
